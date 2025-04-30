@@ -2,7 +2,8 @@
 import json
 import os
 # import boto3
-import requests  # HTTPリクエストを送信するためのライブラリ
+import urllib.request  # requestsの代わりにurllib.requestを使用
+import urllib.error
 import re  # 正規表現モジュールをインポート
 from botocore.exceptions import ClientError
 
@@ -61,19 +62,20 @@ def lambda_handler(event, context):
         
         print("Calling FastAPI endpoint with payload:", json.dumps(request_payload))
         
-        # FastAPIエンドポイントを呼び出し
-        response = requests.post(
-            f"{API_URL}/generate",
-            json=request_payload,
-            headers={"Content-Type": "application/json"}
+        # urllib.requestを使ってFastAPIエンドポイントを呼び出し
+        data = json.dumps(request_payload).encode('utf-8')
+        req = urllib.request.Request(
+            f"{API_URL}/generate", 
+            data=data, 
+            headers={'Content-Type': 'application/json'}
         )
         
-        # レスポンスを検証
-        if response.status_code != 200:
-            raise Exception(f"API returned status code {response.status_code}: {response.text}")
-            
-        response_data = response.json()
-        print("FastAPI response:", json.dumps(response_data))
+        try:
+            with urllib.request.urlopen(req) as response:
+                response_data = json.loads(response.read().decode('utf-8'))
+                print("FastAPI response:", json.dumps(response_data))
+        except urllib.error.HTTPError as e:
+            raise Exception(f"API returned status code {e.code}: {e.read().decode('utf-8')}")
         
         # 応答の検証とレスポンスの取り出し方を変更
         if "generated_text" not in response_data:
